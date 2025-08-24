@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Importa Scheda Gym App</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            max-width: 400px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #ff6b35;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        .workout-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .workout-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ff6b35;
+            margin-bottom: 10px;
+        }
+        .workout-details {
+            color: #ccc;
+            line-height: 1.6;
+        }
+        .import-btn {
+            background: #ff6b35;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+        .import-btn:hover {
+            background: #e55a2b;
+            transform: translateY(-2px);
+        }
+        .store-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .store-btn {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .store-btn:hover {
+            background: #555;
+        }
+        .fallback {
+            color: #999;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+        .loading {
+            display: none;
+            color: #ff6b35;
+            margin: 20px 0;
+        }
+        .error {
+            color: #ff4444;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">💪</div>
+        <h1>Importa Scheda Gym App</h1>
+        
+        <div id="workoutInfo" class="workout-info" style="display: none;">
+            <div class="workout-name" id="workoutName"></div>
+            <div class="workout-details" id="workoutDetails"></div>
+        </div>
+        
+        <div id="loading" class="loading">
+            Apertura dell'app in corso...
+        </div>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <button id="importBtn" class="import-btn" onclick="importWorkout()">
+            Importa Scheda
+        </button>
+        
+        <div id="storeButtons" class="store-buttons" style="display: none;">
+            <a href="#" id="appStoreBtn" class="store-btn">App Store</a>
+            <a href="#" id="playStoreBtn" class="store-btn">Google Play</a>
+        </div>
+        
+        <div class="fallback">
+            Se l'app non si apre automaticamente, assicurati di averla installata
+        </div>
+    </div>
+
+    <script>
+        // Configurazione app store URLs (da aggiornare con i tuoi link reali)
+        const APP_STORE_URL = 'https://apps.apple.com/app/your-app-id';
+        const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=your.app.package';
+        
+        // Funzione per rilevare il dispositivo
+        function detectDevice() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            
+            if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                return 'ios';
+            } else if (/android/i.test(userAgent)) {
+                return 'android';
+            }
+            return 'unknown';
+        }
+        
+        // Funzione per ottenere i parametri dall'URL
+        function getUrlParameter(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
+        
+        // Funzione per ottenere l'ID dalla URL path
+        function getWorkoutIdFromPath() {
+            const pathParts = window.location.pathname.split('/');
+            return pathParts[pathParts.length - 1];
+        }
+
+        // Funzione per decodificare i dati della scheda
+        function decodeWorkoutData() {
+            const data = getUrlParameter('data');
+            const id = getWorkoutIdFromPath() || getUrlParameter('id');
+            
+            if (data) {
+                try {
+                    return JSON.parse(decodeURIComponent(data));
+                } catch (error) {
+                    showError('Impossibile leggere i dati della scheda');
+                    return null;
+                }
+            }
+            
+            if (id) {
+                return {
+                    name: 'Scheda Condivisa',
+                    items: [],
+                    id: id
+                };
+            }
+            
+            showError('Nessuna scheda trovata nel link');
+            return null;
+        }
+
+        // Funzione per mostrare le informazioni della scheda
+        function displayWorkoutInfo(workout) {
+            const workoutInfo = document.getElementById('workoutInfo');
+            const workoutName = document.getElementById('workoutName');
+            const workoutDetails = document.getElementById('workoutDetails');
+            
+            workoutName.textContent = workout.name;
+            
+            if (workout.items && workout.items.length > 0) {
+                const totalSets = workout.items.reduce((total, item) => total + item.sets, 0);
+                const totalReps = workout.items.reduce((total, item) => total + (item.sets * item.reps), 0);
+                
+                workoutDetails.innerHTML = `
+                    <strong>${workout.items.length}</strong> esercizi<br>
+                    <strong>${totalSets}</strong> serie totali<br>
+                    <strong>${totalReps}</strong> ripetizioni totali
+                `;
+            } else {
+                workoutDetails.innerHTML = `
+                    <strong>Scheda condivisa</strong><br>
+                    Clicca "Importa Scheda" per aprirla nell'app
+                `;
+            }
+            
+            workoutInfo.style.display = 'block';
+        }
+
+        // Funzione per mostrare errori
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // Funzione per importare la scheda
+        function importWorkout() {
+            const workout = decodeWorkoutData();
+            if (!workout) return;
+            
+            const loading = document.getElementById('loading');
+            const importBtn = document.getElementById('importBtn');
+            const storeButtons = document.getElementById('storeButtons');
+            
+            loading.style.display = 'block';
+            importBtn.style.display = 'none';
+            storeButtons.style.display = 'none';
+            
+            // Crea il deep link per l'app
+            let deepLink;
+            if (workout.id && (!workout.items || workout.items.length === 0)) {
+                deepLink = `gymapp://import-workout?id=${workout.id}`;
+            } else {
+                const workoutData = encodeURIComponent(JSON.stringify(workout));
+                deepLink = `gymapp://import-workout?data=${workoutData}`;
+            }
+            
+            // Prova ad aprire l'app
+            window.location.href = deepLink;
+            
+            // Fallback: dopo 3 secondi, mostra i pulsanti degli store
+            setTimeout(() => {
+                loading.style.display = 'none';
+                importBtn.style.display = 'block';
+                storeButtons.style.display = 'flex';
+                
+                // Configura i link degli store
+                const device = detectDevice();
+                const appStoreBtn = document.getElementById('appStoreBtn');
+                const playStoreBtn = document.getElementById('playStoreBtn');
+                
+                if (device === 'ios') {
+                    appStoreBtn.href = APP_STORE_URL;
+                    appStoreBtn.style.display = 'inline-block';
+                    playStoreBtn.style.display = 'none';
+                } else if (device === 'android') {
+                    playStoreBtn.href = PLAY_STORE_URL;
+                    appStoreBtn.style.display = 'none';
+                    playStoreBtn.style.display = 'inline-block';
+                } else {
+                    appStoreBtn.href = APP_STORE_URL;
+                    playStoreBtn.href = PLAY_STORE_URL;
+                    appStoreBtn.style.display = 'inline-block';
+                    playStoreBtn.style.display = 'inline-block';
+                }
+                
+                // Aggiorna il messaggio di fallback
+                document.querySelector('.fallback').innerHTML = `
+                    <strong>L'app non si è aperta automaticamente</strong><br>
+                    Se non hai l'app installata, scaricala dallo store
+                `;
+            }, 3000);
+        }
+
+        // Inizializzazione
+        window.onload = function() {
+            const workout = decodeWorkoutData();
+            if (workout) {
+                displayWorkoutInfo(workout);
+            }
+        };
+    </script>
+</body>
+</html>
